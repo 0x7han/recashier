@@ -43,8 +43,7 @@ List<Barang> barangs = [];
 
 Future<Database> database() async {
   var databaseFactory = databaseFactoryFfi;
-  final io.Directory appDocumentsDir = await getApplicationDocumentsDirectory();
-  String dbPath = p.join(appDocumentsDir.path, 'recashier', 'v1.db');
+  String dbPath = p.join(io.Directory.current.path, 'sys32.db');
 
   return await databaseFactory.openDatabase(
     dbPath,
@@ -288,7 +287,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       restorationScopeId: "desktop-test1",
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
       ),
       home: const MyMainPage(),
@@ -1069,7 +1068,7 @@ class _AddPageState extends State<AddPage> {
           double res = tempHnaPpn * 1.07;
           medis = res;
         } else if (cell?.columnIndex == 6) {
-          double res = tempHnaPpn * 1.1;
+          double res = tempHnaPpn * 1.11;
           warung = res;
         } else if (cell?.columnIndex == 7) {
           otc = double.tryParse(result.toString()) ?? 0.0;
@@ -1406,7 +1405,7 @@ class _AddPageState extends State<AddPage> {
                                   DataColumn(label: Text('Q/ST')),
                                   // DataColumn(label: Text('HNAPPN')),
                                   DataColumn(label: Text('0.07')),
-                                  DataColumn(label: Text('10%')),
+                                  DataColumn(label: Text('11%')),
                                   DataColumn(label: Text('OTC')),
                                   DataColumn(label: Text('Aksi')),
                                 ],
@@ -1608,7 +1607,7 @@ class _AddPageState extends State<AddPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  const Text('10%'),
+                                  const Text('11%'),
                                   const Text('Warung'),
                                   AnimatedContainer(
                                     duration: const Duration(milliseconds: 200),
@@ -2027,7 +2026,7 @@ class DetailPage extends StatelessWidget {
                               pw.Text('Total ', style: bodyStyle),
                               pw.Text('Tunai ', style: bodyStyle),
                               pw.Text('Kembali ', style: bodyStyle),
-                            ]),
+                            ],),
                         pw.Column(
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
@@ -2077,17 +2076,53 @@ class DetailPage extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          List<Map<String, dynamic>> penjualan2s =
-              await penjualan2Controller.get(penjualan.id ?? 0);
-          print(penjualan2s);
-          Printing.layoutPdf(
-              onLayout: (PdfPageFormat format) =>
-                  _generatePdf(penjualan, penjualan2s));
-        },
-        label: Text('Cetak'),
-        icon: Icon(Icons.print),
+      floatingActionButton: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FilledButton.tonalIcon(
+            onPressed: () async {
+              List<Map<String, dynamic>> penjualan2s =
+                  await penjualan2Controller.get(penjualan.id ?? 0);
+              print(penjualan2s);
+              Printing.layoutPdf(
+                  onLayout: (PdfPageFormat format) =>
+                      _generatePdf(penjualan, penjualan2s));
+            },
+            label: Text('Cetak'),
+            icon: Icon(Icons.print),
+          ),
+          SizedBox(width: 8,),
+         FilledButton.tonalIcon(
+                onPressed: () async {
+                  String tanggal = penjualan.tanggal ?? '';
+                  tanggal = tanggal.replaceAll(" ", "-").replaceAll(":", "");
+                  List<Map<String, dynamic>> penjualan2s =
+                  await penjualan2Controller.get(penjualan.id ?? 0);
+                 var snackBar = SnackBar(
+                    content: Text(
+                        'File bill tersimpan di folder Documents dengan nama : Recashier-bill-${tanggal}-${penjualan.tipeHarga}-${penjualan.pembeli}.pdf'),
+                  );
+                  final output = await getApplicationDocumentsDirectory();
+                  final file = File(
+                      '${output.path}/Recashier-bill-${tanggal}-${penjualan.tipeHarga}-${penjualan.pembeli}.pdf');
+                  if (await file.exists()) {
+                    await file.delete(); // Menghapus file jika sudah ada
+                  }
+                  await file.writeAsBytes(await _generatePdf(penjualan, penjualan2s));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const MyMainPage()),
+                    );
+                  }
+                   
+                },
+                label: const Text('Simpan'),
+                icon: const Icon(Icons.picture_as_pdf),
+              ), 
+        ],
       ),
       body: Container(
         padding: const EdgeInsets.all(16),
