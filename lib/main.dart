@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' as io;
 import 'dart:io';
+import 'package:app_settings/app_settings.dart';
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'dart:typed_data';
 import 'package:intl/intl.dart';
@@ -324,12 +325,25 @@ class _MyMainPageState extends State<MyMainPage> {
   void findPathHarga() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles();
 
+
     if (result != null) {
-      io.File file = io.File(result.files.single.path!);
+
+        String fileName = p.basename(result.files.single.path!);
+        String pathName = '/storage/emulated/0/Download/';
+
+      io.File file = io.File(pathName+fileName);
 
       final SharedPreferences prefs = await SharedPreferences.getInstance();
+      
+      print('file.path : ${file.path}');
+
       await prefs.setString('pathHarga', file.path);
       final String? path = prefs.getString('pathHarga');
+
+      // print('result.files.single.path! : ${result.files.single.path!}');
+      print('prefs.getString(pathHarga) : ${prefs.getString('pathHarga')}');
+      
+
       setState(() {});
       //print(path);
     } else {
@@ -549,13 +563,13 @@ class _MyMainPageState extends State<MyMainPage> {
   double pendapatan = double.tryParse(pen) ?? 0.0;
 
   Future<void> _savePdfToDownloads(String fileName, Uint8List pdfData) async {
-    // Meminta izin untuk akses penyimpanan
-    // Mendapatkan direktori Downloads
       final Directory? downloadsDirectory =
           Directory('/storage/emulated/0/Download');
 
       if (downloadsDirectory != null && downloadsDirectory.existsSync()) {
         final file = File('${downloadsDirectory.path}/$fileName');
+
+        print('downloadsDirectory.path ${downloadsDirectory.path}');
 
         if (await file.exists()) {
           await file.delete(); // Menghapus file jika sudah ada
@@ -568,6 +582,7 @@ class _MyMainPageState extends State<MyMainPage> {
         throw Exception('Direktori Downloads tidak ditemukan.');
       }
   }
+
 
   return showDialog<void>(
     barrierDismissible: false,
@@ -758,6 +773,19 @@ class _MyMainPageState extends State<MyMainPage> {
   );
 }
 
+Future<void> checkManageExternalStoragePermission() async {
+  var permission = await Permission.manageExternalStorage.status;
+
+  if (!permission.isGranted) {
+    await Permission.manageExternalStorage.request();
+  }
+}
+
+@override
+  void initState() {
+    checkManageExternalStoragePermission();
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1364,7 +1392,7 @@ class _AddPageState extends State<AddPage> {
                     width: 32,
                   ),
                   Text(
-                    'Perhatian ketika ada update data barang, harap mulai ulang aplikasi',
+                    'Perhatian ketika ada update data barang, harap KLIK REFRESH DISAMPING',
                     style: TextStyle(color: Colors.white, fontSize: 14),
                   ),
                 ],
@@ -1372,6 +1400,21 @@ class _AddPageState extends State<AddPage> {
             ),
           ],
         ),
+        actions: [
+          FilledButton.icon(onPressed: (){
+            barangs = [];
+            loadHargaExcel();
+            setState(() {
+              
+            });
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AddPage()),
+                  );
+          }, icon: Icon(Icons.refresh), label: Text('Refresh'),),
+
+          SizedBox(width: 8,),
+        ],
       ),
       body: Container(
         child: Row(
