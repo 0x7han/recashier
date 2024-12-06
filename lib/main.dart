@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:printing/printing.dart';
 
 import 'package:excel/excel.dart' as ex;
@@ -19,9 +20,18 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:flutter/foundation.dart';
+
 Future<void> main() async {
-  sqfliteFfiInit();
-  database();
+  WidgetsFlutterBinding.ensureInitialized();
+
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    // Inisialisasi sqfliteFfi untuk platform desktop
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+
+  await database(); // Pastikan database terinisialisasi sebelum runApp()
 
   runApp(MultiProvider(
     providers: [
@@ -29,29 +39,20 @@ Future<void> main() async {
     ],
     child: const MyApp(),
   ));
-  doWhenWindowReady(() {
-    const initialSize = Size(1366, 722);
-    appWindow
-      ..minSize = initialSize
-      ..size = initialSize
-      ..alignment = Alignment.center
-      ..show();
-  });
 }
 
 List<Barang> barangs = [];
 
 Future<Database> database() async {
-  var databaseFactory = databaseFactoryFfi;
-  final io.Directory appDocumentsDir = await getApplicationDocumentsDirectory();
+  final Directory appDocumentsDir = await getApplicationDocumentsDirectory();
   String dbPath = p.join(appDocumentsDir.path, 'recashier', 'v1.db');
 
   return await databaseFactory.openDatabase(
     dbPath,
     options: OpenDatabaseOptions(
       version: 1,
-      onCreate: (db, version) {
-        db.execute('''
+      onCreate: (db, version) async {
+        await db.execute('''
             CREATE TABLE `penjualan` (
               `id` integer PRIMARY KEY AUTOINCREMENT,
               `tanggal` text,
@@ -64,7 +65,9 @@ Future<Database> database() async {
               `tunai` real,
               `kembali` real
             );
+        ''');
 
+        await db.execute('''
             CREATE TABLE `penjualan2` (
               `id` integer PRIMARY KEY AUTOINCREMENT,
               `penjualan_id` integer,
@@ -73,7 +76,6 @@ Future<Database> database() async {
               `qty` integer,
               `total_harga` real
             );
-
         ''');
       },
     ),
@@ -388,7 +390,6 @@ class _MyMainPageState extends State<MyMainPage> {
     List<Map<String, dynamic>> penjualan =
         await penjualanController.get(date: _dateTime);
 
-    
     print(penjualan);
     pdf.addPage(
       pw.MultiPage(
@@ -404,138 +405,131 @@ class _MyMainPageState extends State<MyMainPage> {
             fontSize: 12,
           );
           return [
-                  pw.Text('== APOTEK PINTU ==', style: headStyle),
-                  pw.Text('Laporan Keuangan', style: subHeadStyle),
-                  pw.Text('________________________________________________',
-                      style: subHeadStyle),
-                  pw.SizedBox(height: 16),
-                  pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.SizedBox(
-                          width: 200,
-                          child: pw.Row(
-                              mainAxisAlignment:
-                                  pw.MainAxisAlignment.spaceBetween,
-                              children: [
-                                pw.Column(
-                                    crossAxisAlignment:
-                                        pw.CrossAxisAlignment.start,
-                                    children: [
-                                      pw.Text('Tanggal ', style: bodyStyle),
-                                      pw.Text('Penanggung Jawab ',
-                                          style: bodyStyle),
-                                      pw.Text('Pendapatan ', style: bodyStyle),
-                                      pw.Text('Nominal Kasir ',
-                                          style: bodyStyle),
-                                      pw.Text('Sesuai ', style: bodyStyle),
-                                      pw.Text('Alasan ', style: bodyStyle),
-                                    ]),
-                                pw.Column(
-                                    crossAxisAlignment:
-                                        pw.CrossAxisAlignment.start,
-                                    children: [
-                                      pw.Text(': ${laporan.tanggal}',
-                                          style: bodyStyle),
-                                      pw.Text(': ${laporan.penanggungJawab}',
-                                          style: bodyStyle),
-                                      pw.Text(': ${toIDR(laporan.pendapatan)}',
-                                          style: bodyStyle),
-                                      pw.Text(
-                                          ': ${toIDR(isPendapatanMatch ? pendapatan : nominalKasir)}',
-                                          style: bodyStyle),
-                                      pw.Text(': ${laporan.sesuai}',
-                                          style: bodyStyle),
-                                      pw.Text(': ${laporan.alasan} ',
-                                          style: bodyStyle),
-                                    ]),
-                              ]),
-                        ),
-                      ]),
-                  pw.Text('________________________________________________',
-                      style: subHeadStyle),
-                  pw.SizedBox(height: 8),
-                  pw.Container(
-                    padding: pw.EdgeInsets.all(8),
-                    height: 40,
-                    color: PdfColor.fromHex('#99f0b0'),
+            pw.Text('== APOTEK PINTU ==', style: headStyle),
+            pw.Text('Laporan Keuangan', style: subHeadStyle),
+            pw.Text('________________________________________________',
+                style: subHeadStyle),
+            pw.SizedBox(height: 16),
+            pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.SizedBox(
+                    width: 200,
                     child: pw.Row(
-                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
-                          pw.SizedBox(
-                            width: 30,
-                            child: pw.Text('No'),
-                          ),
-                          pw.SizedBox(
-                            width: 50,
-                            child: pw.Text('Jam'),
-                          ),
-                          pw.SizedBox(
-                            width: 60,
-                            child: pw.Text('Pembeli'),
-                          ),
-                          pw.SizedBox(
-                            width: 120,
-                            child: pw.Text('Tipe Pembayaran'),
-                          ),
-                          pw.SizedBox(
-                            width: 80,
-                            child: pw.Text('Tipe Harga'),
-                          ),
-                          pw.SizedBox(
-                            width: 120,
-                            child: pw.Text('Total Harga'),
-                          ),
+                          pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text('Tanggal ', style: bodyStyle),
+                                pw.Text('Penanggung Jawab ', style: bodyStyle),
+                                pw.Text('Pendapatan ', style: bodyStyle),
+                                pw.Text('Nominal Kasir ', style: bodyStyle),
+                                pw.Text('Sesuai ', style: bodyStyle),
+                                pw.Text('Alasan ', style: bodyStyle),
+                              ]),
+                          pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text(': ${laporan.tanggal}',
+                                    style: bodyStyle),
+                                pw.Text(': ${laporan.penanggungJawab}',
+                                    style: bodyStyle),
+                                pw.Text(': ${toIDR(laporan.pendapatan)}',
+                                    style: bodyStyle),
+                                pw.Text(
+                                    ': ${toIDR(isPendapatanMatch ? pendapatan : nominalKasir)}',
+                                    style: bodyStyle),
+                                pw.Text(': ${laporan.sesuai}',
+                                    style: bodyStyle),
+                                pw.Text(': ${laporan.alasan} ',
+                                    style: bodyStyle),
+                              ]),
                         ]),
                   ),
-                  pw.Padding(
-                    padding: pw.EdgeInsets.all(8),
-                    child: pw.Column(
-                      children: penjualan.asMap().entries.map((entry) {
-                        
-                        var index = entry.key +
-                            1; // Menambahkan 1 karena indeks dimulai dari 0
-                        var item = entry.value;
-                        var penjualan2 =  penjualan2Controller.get(item['id']);
-                        String tanggal = item['tanggal'];
-                        String t = tanggal.substring(11);
-                        String jam = t.substring(0, t.length - 3);
-                        
-                        return pw.Row(
-                          crossAxisAlignment: pw.CrossAxisAlignment.center,
-                          children: [
-                            pw.SizedBox(
-                              width: 30,
-                              child: pw.Text('${index}'),
-                            ),
-                            pw.SizedBox(
-                              width: 50,
-                              child: pw.Text('${jam}'),
-                            ),
-                            pw.SizedBox(
-                              width: 60,
-                              child: pw.Text('${item['pembeli']}'),
-                            ),
-                            pw.SizedBox(
-                              width: 120,
-                              child: pw.Text('${item['tipe_pembayaran']}'),
-                            ),
-                            pw.SizedBox(
-                              width: 80,
-                              child: pw.Text('${item['tipe_harga']}'),
-                            ),
-                            pw.SizedBox(
-                              width: 120,
-                              child: pw.Text('${toIDR(item['total_harga'])}'),
-                            ),
-                            
-                          ],
-                        );
-                      }).toList(),
+                ]),
+            pw.Text('________________________________________________',
+                style: subHeadStyle),
+            pw.SizedBox(height: 8),
+            pw.Container(
+              padding: pw.EdgeInsets.all(8),
+              height: 40,
+              color: PdfColor.fromHex('#99f0b0'),
+              child: pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.SizedBox(
+                      width: 30,
+                      child: pw.Text('No'),
                     ),
-                  ),
-                ];
+                    pw.SizedBox(
+                      width: 50,
+                      child: pw.Text('Jam'),
+                    ),
+                    pw.SizedBox(
+                      width: 60,
+                      child: pw.Text('Pembeli'),
+                    ),
+                    pw.SizedBox(
+                      width: 120,
+                      child: pw.Text('Tipe Pembayaran'),
+                    ),
+                    pw.SizedBox(
+                      width: 80,
+                      child: pw.Text('Tipe Harga'),
+                    ),
+                    pw.SizedBox(
+                      width: 120,
+                      child: pw.Text('Total Harga'),
+                    ),
+                  ]),
+            ),
+            pw.Padding(
+              padding: pw.EdgeInsets.all(8),
+              child: pw.Column(
+                children: penjualan.asMap().entries.map((entry) {
+                  var index = entry.key +
+                      1; // Menambahkan 1 karena indeks dimulai dari 0
+                  var item = entry.value;
+                  var penjualan2 = penjualan2Controller.get(item['id']);
+                  String tanggal = item['tanggal'];
+                  String t = tanggal.substring(11);
+                  String jam = t.substring(0, t.length - 3);
+
+                  return pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
+                    children: [
+                      pw.SizedBox(
+                        width: 30,
+                        child: pw.Text('${index}'),
+                      ),
+                      pw.SizedBox(
+                        width: 50,
+                        child: pw.Text('${jam}'),
+                      ),
+                      pw.SizedBox(
+                        width: 60,
+                        child: pw.Text('${item['pembeli']}'),
+                      ),
+                      pw.SizedBox(
+                        width: 120,
+                        child: pw.Text('${item['tipe_pembayaran']}'),
+                      ),
+                      pw.SizedBox(
+                        width: 80,
+                        child: pw.Text('${item['tipe_harga']}'),
+                      ),
+                      pw.SizedBox(
+                        width: 120,
+                        child: pw.Text('${toIDR(item['total_harga'])}'),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ];
         },
       ),
     );
@@ -544,215 +538,226 @@ class _MyMainPageState extends State<MyMainPage> {
   }
 
   Future<void> _dialogBuilder(
-      BuildContext context, List<Penjualan> penjualan) async {
-    TextTheme textTheme = Theme.of(context).textTheme;
-    ColorScheme colorScheme = Theme.of(context).colorScheme;
-    DateTime dn = DateTime.now();
-    String dateNow = DateFormat('yyyy-MM-dd').format(dn);
-    String pen = await penjualanController.sumTotalHargaSeluruh(dateNow) ?? '';
-    double pendapatan = double.tryParse(pen) ?? 0.0;
+  BuildContext context,
+  List<Penjualan> penjualan,
+) async {
+  TextTheme textTheme = Theme.of(context).textTheme;  ColorScheme colorScheme = Theme.of(context).colorScheme;
+  DateTime dn = DateTime.now();
+  String dateNow = DateFormat('yyyy-MM-dd').format(dn);
+  String pen =
+      await penjualanController.sumTotalHargaSeluruh(dateNow) ?? '';
+  double pendapatan = double.tryParse(pen) ?? 0.0;
 
-    return showDialog<void>(
-      barrierDismissible: false,
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, stfState) => AlertDialog(
-            title: const Text('Buat Laporan'),
-            content: SizedBox(
-              width: 900,
-              height: 500,
-              child: Row(
+  Future<void> _savePdfToDownloads(String fileName, Uint8List pdfData) async {
+    // Meminta izin untuk akses penyimpanan
+    // Mendapatkan direktori Downloads
+      final Directory? downloadsDirectory =
+          Directory('/storage/emulated/0/Download');
+
+      if (downloadsDirectory != null && downloadsDirectory.existsSync()) {
+        final file = File('${downloadsDirectory.path}/$fileName');
+
+        if (await file.exists()) {
+          await file.delete(); // Menghapus file jika sudah ada
+        }
+
+        await file.writeAsBytes(pdfData);
+
+        print('File tersimpan di: ${file.path}');
+      } else {
+        throw Exception('Direktori Downloads tidak ditemukan.');
+      }
+  }
+
+  return showDialog<void>(
+    barrierDismissible: false,
+    context: context,
+    builder: (BuildContext context) {
+      return StatefulBuilder(
+        builder: (context, stfState) => AlertDialog(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Buat Laporan'),
+              Row(
                 children: [
-                  // SizedBox(
-                  //   width: 500,
-                  //   height: 500,
-                  //   child: PdfPreview(
-                  //     useActions: false,
-                  //     build: (format) =>_generatePdf(penjualan: []),
-                  //   ),
-                  // ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Keterangan',
-                          style: textTheme.titleLarge,
-                        ),
-                        const SizedBox(
-                          height: 16,
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Tanggal ',
-                                ),
-                                Text('Penanggung Jawab '),
-                                Text('Pendapatan '),
-                                Text('Nominal Kasir '),
-                                Text('Sesuai '),
-                                Text('Alasan '),
-                              ],
-                            ),
-                            SizedBox(
-                              width: 200,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    ': $dateNow',
-                                  ),
-                                  Text(
-                                    ': ${penanggungJawabController.text}',
-                                  ),
-                                  Text(': ${toIDR(pendapatan)}'),
-                                  Text(
-                                      ': ${toIDR(isPendapatanMatch ? pendapatan : nominalKasir)}'),
-                                  Text(': $isPendapatanMatch'),
-                                  Text(': ${alasanController.text}'),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(
-                          height: 16,
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Checkbox(
-                                    value: isPendapatanMatch,
-                                    onChanged: (bool? value) {
-                                      stfState(() {
-                                        isPendapatanMatch = value!;
-                                      });
-                                    },
-                                  ),
-                                  const Text(
-                                      'Pendapatan sesuai dengan jumlah uang dikasir'),
-                                ],
-                              )
-                            ],
-                          ),
-                        ),
-                        const SizedBox(
-                          height: 16,
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 32),
-                          child: TextField(
-                            controller: alasanController,
-                            onChanged: (value) {
-                              stfState(() {});
-                            },
-                            enabled: isPendapatanMatch ? false : true,
-                            decoration: InputDecoration(
-                              enabledBorder: OutlineInputBorder(
-                                  borderSide:
-                                      BorderSide(color: colorScheme.primary)),
-                              labelText: 'Alasan',
-                              border: OutlineInputBorder(
-                                  borderSide:
-                                      BorderSide(color: colorScheme.primary)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(
-                          height: 16,
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 32),
-                          child: TextField(
-                            controller: nominalKasirController,
-                            onChanged: (value) {
-                              stfState(() {
-                                onNominal();
-                              });
-                            },
-                            enabled: isPendapatanMatch ? false : true,
-                            decoration: InputDecoration(
-                              enabledBorder: OutlineInputBorder(
-                                  borderSide:
-                                      BorderSide(color: colorScheme.primary)),
-                              labelText: 'Jumlah uang dikasir',
-                              border: OutlineInputBorder(
-                                  borderSide:
-                                      BorderSide(color: colorScheme.primary)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(
-                          height: 16,
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 32),
-                          child: TextField(
-                            controller: penanggungJawabController,
-                            onChanged: (value) {
-                              stfState(() {});
-                            },
-                            decoration: InputDecoration(
-                              enabledBorder: OutlineInputBorder(
-                                  borderSide:
-                                      BorderSide(color: colorScheme.primary)),
-                              labelText: 'Penanggung Jawab',
-                              border: OutlineInputBorder(
-                                  borderSide:
-                                      BorderSide(color: colorScheme.primary)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      final String fileName =
+                          'Recashier-$dateNow-${dn.hour}-${dn.minute}.pdf';
+
+                      try {
+                        await _savePdfToDownloads(
+                            fileName, await _generatePdf());
+
+                        var snackBar = SnackBar(
+                          content: Text(
+                              'File laporan tersimpan di folder Downloads dengan nama: $fileName'),
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                          Navigator.pop(context);
+                        }
+                      } catch (e) {
+                        print('Error menyimpan file: $e');
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Gagal menyimpan file: $e')),
+                          );
+                        }
+                      }
+                    },
+                    label: const Text('Simpan'),
+                    icon: const Icon(Icons.picture_as_pdf),
+                  ),
+                  SizedBox(width: 8),
+                  FilledButton.tonal(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Selesai'),
                   ),
                 ],
-              ),
-            ),
-            actions: [
-              FilledButton.icon(
-                onPressed: () async {
-                  var snackBar = SnackBar(
-                    content: Text(
-                        'File laporan tersimpan di folder Documents dengan nama : Recashier-$dateNow-${dn.hour}-${dn.minute}.pdf'),
-                  );
-                  final output = await getApplicationDocumentsDirectory();
-                  final file = File(
-                      '${output.path}/Recashier-$dateNow-${dn.hour}-${dn.minute}.pdf');
-                  if (await file.exists()) {
-                    await file.delete(); // Menghapus file jika sudah ada
-                  }
-                  await file.writeAsBytes(await _generatePdf());
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(snackBar);
-                    Navigator.pop(context);
-                  }
-                },
-                // onPressed: () => Printing.layoutPdf(
-                //     onLayout: (PdfPageFormat format) => _generatePdf()),
-                label: const Text('Simpan'),
-                icon: const Icon(Icons.picture_as_pdf),
-              ),
-              FilledButton.tonal(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Selesai')),
+              )
             ],
           ),
-        );
-      },
-    );
-  }
+          content: SizedBox(
+            width: 900,
+            height: 500,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Tanggal '),
+                              Text('Penanggung Jawab '),
+                              Text('Pendapatan '),
+                              Text('Nominal Kasir '),
+                              Text('Sesuai '),
+                              Text('Alasan '),
+                            ],
+                          ),
+                          SizedBox(
+                            width: 200,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(': $dateNow'),
+                                Text(
+                                    ': ${penanggungJawabController.text}'),
+                                Text(': ${toIDR(pendapatan)}'),
+                                Text(
+                                    ': ${toIDR(isPendapatanMatch ? pendapatan : nominalKasir)}'),
+                                Text(': $isPendapatanMatch'),
+                                Text(': ${alasanController.text}'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Checkbox(
+                                  value: isPendapatanMatch,
+                                  onChanged: (bool? value) {
+                                    stfState(() {
+                                      isPendapatanMatch = value!;
+                                    });
+                                  },
+                                ),
+                                const Text(
+                                    'Pendapatan sesuai dengan jumlah uang dikasir'),
+                              ],
+                            )
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: TextField(
+                          controller: alasanController,
+                          onChanged: (value) {
+                            stfState(() {});
+                          },
+                          enabled: isPendapatanMatch ? false : true,
+                          decoration: InputDecoration(
+                            enabledBorder: OutlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: colorScheme.primary)),
+                            labelText: 'Alasan',
+                            border: OutlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: colorScheme.primary)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: TextField(
+                          controller: nominalKasirController,
+                          onChanged: (value) {
+                            stfState(() {
+                              onNominal();
+                            });
+                          },
+                          enabled: isPendapatanMatch ? false : true,
+                          decoration: InputDecoration(
+                            enabledBorder: OutlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: colorScheme.primary)),
+                            labelText: 'Jumlah uang dikasir',
+                            border: OutlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: colorScheme.primary)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: TextField(
+                          controller: penanggungJawabController,
+                          onChanged: (value) {
+                            stfState(() {});
+                          },
+                          decoration: InputDecoration(
+                            enabledBorder: OutlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: colorScheme.primary)),
+                            labelText: 'Penanggung Jawab',
+                            border: OutlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: colorScheme.primary)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -760,23 +765,26 @@ class _MyMainPageState extends State<MyMainPage> {
       appBar: AppBar(
         title: const Text('Re Cashier'),
         actions: [
-          FutureBuilder<String?>(
-            future: getPathHarga(),
-            builder: (BuildContext context, AsyncSnapshot<String?> snapshot) {
-              Widget child;
-              if (snapshot.hasData) {
-                child = Text(snapshot.data ?? '');
-              } else if (snapshot.hasError) {
-                child = const Text('Data belum ada');
-              } else {
-                child = const SizedBox(
-                  width: 60,
-                  height: 60,
-                  child: CircularProgressIndicator(),
-                );
-              }
-              return child;
-            },
+          SizedBox(
+            width: 400,
+            child: FutureBuilder<String?>(
+              future: getPathHarga(),
+              builder: (BuildContext context, AsyncSnapshot<String?> snapshot) {
+                Widget child;
+                if (snapshot.hasData) {
+                  child = Text(snapshot.data ?? '');
+                } else if (snapshot.hasError) {
+                  child = const Text('Data belum ada');
+                } else {
+                  child = const SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: CircularProgressIndicator(),
+                  );
+                }
+                return child;
+              },
+            ),
           ),
           const SizedBox(
             width: 16,
@@ -796,152 +804,129 @@ class _MyMainPageState extends State<MyMainPage> {
         ),
         child: const Icon(Icons.add),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                FilledButton.tonalIcon(
-                    onPressed: () => showDateTimePicker(),
-                    icon: const Icon(Icons.date_range),
-                    label: const Text('Pilih tanggal')),
-                const SizedBox(
-                  width: 16,
-                ),
-                FilledButton.tonalIcon(
-                    onPressed: () => _dialogBuilder(context, []),
-                    icon: const Icon(Icons.picture_as_pdf),
-                    label: const Text('Bikin laporan'))
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 550,
-            child: SingleChildScrollView(
-              child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: penjualanController.get(date: _dateTime),
-                builder: (BuildContext context,
-                    AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
-                  Widget child;
-                  if (snapshot.hasData) {
-                    child = DataTable(
-                      columns: const [
-                        DataColumn(label: Text('No')),
-                        DataColumn(label: Text('Tanggal')),
-                        DataColumn(label: Text('Kasir')),
-                        DataColumn(label: Text('Pembeli')),
-                        DataColumn(label: Text('Tipe Pembayaran')),
-                        DataColumn(label: Text('Tipe Harga')),
-                        DataColumn(label: Text('Total Item')),
-                        DataColumn(label: Text('Total Harga')),
-                        DataColumn(label: Text('Aksi')),
-                      ],
-                      rows: (() {
-                        int index = 1; // Variable to keep track of the index
-                        return snapshot.data!.map((item) {
-                          //print(item);
-                          final Penjualan penjualan = Penjualan.fromMap(item);
-                          final currentIndex =
-                              index++; // Increment the index for each item
-                          return DataRow(cells: [
-                            DataCell(Text(currentIndex
-                                .toString())), // Use currentIndex for dynamic number
-                            DataCell(
-                              SizedBox(
-                                width: 100,
-                                child: Text(DateFormat("yyyy-MM-dd HH:mm:ss")
-                                    .parse(penjualan.tanggal ?? '')
-                                    .toString()),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 100,
-                                child: Text(penjualan.kasir ?? ''),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 100,
-                                child: Text(penjualan.pembeli),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 100,
-                                child: Text(penjualan.tipePembayaran),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 100,
-                                child: Text(penjualan.tipeHarga),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 100,
-                                child: Text(penjualan.jumlahItem.toString()),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 100,
-                                child: Text(toIDR(penjualan.totalHarga)),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 100,
-                                child: Row(
-                                  children: [
-                                    FilledButton.tonal(
-                                      onPressed: () {
-                                        Navigator.pushReplacement(
-                                          context,
-                                          MaterialPageRoute(
-                                              builder: (context) => DetailPage(
-                                                    penjualan: penjualan,
-                                                  )),
-                                        );
-                                      },
-                                      child: const Text('Detail'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ]);
-                        }).toList();
-                      })(),
-                    );
-                  } else if (snapshot.hasError) {
-                    child = const Text('Data belum ada');
-                  } else {
-                    child = const SizedBox(
-                      width: 60,
-                      height: 60,
-                      child: CircularProgressIndicator(),
-                    );
-                  }
-                  return child;
-                },
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  FilledButton.tonalIcon(
+                      onPressed: () => showDateTimePicker(),
+                      icon: const Icon(Icons.date_range),
+                      label: const Text('Pilih tanggal')),
+                  const SizedBox(
+                    width: 16,
+                  ),
+                  FilledButton.tonalIcon(
+                      onPressed: () => _dialogBuilder(context, []),
+                      icon: const Icon(Icons.picture_as_pdf),
+                      label: const Text('Bikin laporan'))
+                ],
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                FutureBuilder<String?>(
-                  future: penjualanController.sumTotalHargaSeluruh(_dateTime),
-                  builder:
-                      (BuildContext context, AsyncSnapshot<String?> snapshot) {
+            SizedBox(
+              height: 420,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: FutureBuilder<List<Map<String, dynamic>>>(
+                  future: penjualanController.get(date: _dateTime),
+                  builder: (BuildContext context,
+                      AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
                     Widget child;
                     if (snapshot.hasData) {
-                      child = Text(
-                          'Pendapatan ${_dateTime} : ${toIDR(double.tryParse(snapshot.data.toString()) ?? 0.0)}');
+                      child = DataTable(
+                        columns: const [
+                          DataColumn(label: Text('No')),
+                          DataColumn(label: Text('Tanggal')),
+                          DataColumn(label: Text('Kasir')),
+                          DataColumn(label: Text('Pembeli')),
+                          DataColumn(label: Text('Tipe Pembayaran')),
+                          DataColumn(label: Text('Tipe Harga')),
+                          DataColumn(label: Text('Total Item')),
+                          DataColumn(label: Text('Total Harga')),
+                          DataColumn(label: Text('Aksi')),
+                        ],
+                        rows: (() {
+                          int index = 1; // Variable to keep track of the index
+                          return snapshot.data!.map((item) {
+                            //print(item);
+                            final Penjualan penjualan = Penjualan.fromMap(item);
+                            final currentIndex =
+                                index++; // Increment the index for each item
+                            return DataRow(cells: [
+                              DataCell(Text(currentIndex
+                                  .toString())), // Use currentIndex for dynamic number
+                              DataCell(
+                                SizedBox(
+                                  width: 100,
+                                  child: Text(DateFormat("yyyy-MM-dd HH:mm:ss")
+                                      .parse(penjualan.tanggal ?? '')
+                                      .toString()),
+                                ),
+                              ),
+                              DataCell(
+                                SizedBox(
+                                  width: 100,
+                                  child: Text(penjualan.kasir ?? ''),
+                                ),
+                              ),
+                              DataCell(
+                                SizedBox(
+                                  width: 100,
+                                  child: Text(penjualan.pembeli),
+                                ),
+                              ),
+                              DataCell(
+                                SizedBox(
+                                  width: 100,
+                                  child: Text(penjualan.tipePembayaran),
+                                ),
+                              ),
+                              DataCell(
+                                SizedBox(
+                                  width: 100,
+                                  child: Text(penjualan.tipeHarga),
+                                ),
+                              ),
+                              DataCell(
+                                SizedBox(
+                                  width: 100,
+                                  child: Text(penjualan.jumlahItem.toString()),
+                                ),
+                              ),
+                              DataCell(
+                                SizedBox(
+                                  width: 100,
+                                  child: Text(toIDR(penjualan.totalHarga)),
+                                ),
+                              ),
+                              DataCell(
+                                SizedBox(
+                                  width: 100,
+                                  child: Row(
+                                    children: [
+                                      FilledButton.tonal(
+                                        onPressed: () {
+                                          Navigator.pushReplacement(
+                                            context,
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    DetailPage(
+                                                      penjualan: penjualan,
+                                                    )),
+                                          );
+                                        },
+                                        child: const Text('Detail'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ]);
+                          }).toList();
+                        })(),
+                      );
                     } else if (snapshot.hasError) {
                       child = const Text('Data belum ada');
                     } else {
@@ -954,10 +939,37 @@ class _MyMainPageState extends State<MyMainPage> {
                     return child;
                   },
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  FutureBuilder<String?>(
+                    future: penjualanController.sumTotalHargaSeluruh(_dateTime),
+                    builder: (BuildContext context,
+                        AsyncSnapshot<String?> snapshot) {
+                      Widget child;
+                      if (snapshot.hasData) {
+                        child = Text(
+                            'Pendapatan ${_dateTime} : ${toIDR(double.tryParse(snapshot.data.toString()) ?? 0.0)}');
+                      } else if (snapshot.hasError) {
+                        child = const Text('Data belum ada');
+                      } else {
+                        child = const SizedBox(
+                          width: 60,
+                          height: 60,
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+                      return child;
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1336,6 +1348,28 @@ class _AddPageState extends State<AddPage> {
               width: 8,
             ),
             const Text('Kembali'),
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.symmetric(horizontal: 32),
+              decoration: BoxDecoration(
+                  color: Colors.red, borderRadius: BorderRadius.circular(16)),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.warning,
+                    color: Colors.white,
+                  ),
+                  SizedBox(
+                    width: 32,
+                  ),
+                  Text(
+                    'Perhatian ketika ada update data barang, harap mulai ulang aplikasi',
+                    style: TextStyle(color: Colors.white, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -1346,29 +1380,6 @@ class _AddPageState extends State<AddPage> {
                 child: Container(
               child: Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    margin: const EdgeInsets.symmetric(horizontal: 32),
-                    decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(16)),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.warning,
-                          color: Colors.white,
-                        ),
-                        SizedBox(
-                          width: 32,
-                        ),
-                        Text(
-                          'Perhatian ketika ada update data barang, harap mulai ulang aplikasi',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ],
-                    ),
-                  ),
                   Container(
                     padding: const EdgeInsets.all(16),
                     child: TextField(
@@ -1395,18 +1406,18 @@ class _AddPageState extends State<AddPage> {
                         List<Barang>? data = snapshot.data;
                         child = Container(
                           padding: const EdgeInsets.all(8),
-                          height: 490,
+                          height: 390,
                           child: SingleChildScrollView(
                             child: DataTable(
                                 dataRowMinHeight: 40,
                                 dataRowMaxHeight: 60,
                                 columns: const [
                                   DataColumn(label: Text('Barang')),
-                                  DataColumn(label: Text('Satuan')),
-                                  DataColumn(label: Text('Q/ST')),
+                                  //DataColumn(label: Text('Satuan')),
+                                  //DataColumn(label: Text('Q/ST')),
                                   // DataColumn(label: Text('HNAPPN')),
-                                  DataColumn(label: Text('0.07')),
-                                  DataColumn(label: Text('10%')),
+                                  //DataColumn(label: Text('0.07')),
+                                  //DataColumn(label: Text('10%')),
                                   DataColumn(label: Text('OTC')),
                                   DataColumn(label: Text('Aksi')),
                                 ],
@@ -1414,11 +1425,11 @@ class _AddPageState extends State<AddPage> {
                                     .take(20)
                                     .map((Barang item) => DataRow(cells: [
                                           DataCell(Text(item.barang)),
-                                          DataCell(Text(item.satuan)),
-                                          DataCell(Text(item.qst.toString())),
+                                          //DataCell(Text(item.satuan)),
+                                          //DataCell(Text(item.qst.toString())),
                                           // DataCell(Text('Rp ${item.hnaPpn.toStringAsFixed(2)}')),
-                                          DataCell(Text(toIDR(item.medis))),
-                                          DataCell(Text(toIDR(item.warung))),
+                                          // DataCell(Text(toIDR(item.medis))),
+                                          //DataCell(Text(toIDR(item.warung))),
                                           DataCell(Text(toIDR(item.otc))),
                                           DataCell(
                                             SizedBox(
@@ -1496,83 +1507,372 @@ class _AddPageState extends State<AddPage> {
                 ],
               ),
             )),
-            Container(
-              width: 500,
-              margin: const EdgeInsets.all(8),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(16)),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Column(
-                    children: [
-                      Text(
-                        'Keranjang',
-                        style: textTheme.titleLarge,
-                      ),
-                      const SizedBox(
-                        height: 16,
-                      ),
-                      Container(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        height: 80,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            SizedBox(
-                              width: 200,
-                              child: TextField(
-                                controller: pembeliController,
-                                enabled: _groupHarga == 'OTC' ? false : true,
-                                decoration: InputDecoration(
-                                  labelText: 'Pembeli',
-                                  border: const OutlineInputBorder(),
-                                  errorText: pembeliController.text == ''
-                                      ? 'Harap isi nama'
-                                      : null,
+            DefaultTextStyle(
+              style: TextStyle(fontSize: 12, color: Colors.black),
+              child: Container(
+                width: 600,
+                margin: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          height: 80,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              SizedBox(
+                                width: 200,
+                                child: TextField(
+                                  controller: pembeliController,
+                                  enabled: _groupHarga == 'OTC' ? false : true,
+                                  decoration: InputDecoration(
+                                    labelText: 'Pembeli',
+                                    border: const OutlineInputBorder(),
+                                    errorText: pembeliController.text == ''
+                                        ? 'Harap isi nama'
+                                        : null,
+                                  ),
+                                  onChanged: (value) {
+                                    setState(() {});
+                                  },
                                 ),
-                                onChanged: (value) {
-                                  setState(() {});
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    onKembali();
+                                    setHarga('OTC');
+                                    pembeliController.text = 'UMUM';
+                                  });
+                                  for (var itemKeranjang in _keranjang) {
+                                    Barang? barang = barangs.firstWhere(
+                                      (element) =>
+                                          itemKeranjang.barang ==
+                                          element.barang,
+                                    );
+                                    setState(() {
+                                      itemKeranjang.harga = barang.otc;
+                                      itemKeranjang.totalHarga =
+                                          itemKeranjang.qty *
+                                              itemKeranjang.harga;
+                                      sumTotalHarga();
+                                    });
+                                    print(itemKeranjang.barang);
+                                    print(itemKeranjang.harga);
+                                  }
                                 },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Text('OTC'),
+                                    const Text('Umum'),
+                                    AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 200),
+                                      margin: const EdgeInsets.only(top: 8),
+                                      width: 16,
+                                      height: 16,
+                                      decoration: BoxDecoration(
+                                        color: _groupHarga == 'OTC'
+                                            ? colorScheme.primary
+                                            : Colors.transparent,
+                                        border: Border.all(
+                                            color: colorScheme.primary),
+                                        borderRadius: BorderRadius.circular(32),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    onKembali();
+                                    setHarga('Warung');
+                                    pembeliController.text = '';
+                                  });
+                                  for (var itemKeranjang in _keranjang) {
+                                    Barang? barang = barangs.firstWhere(
+                                      (element) =>
+                                          itemKeranjang.barang ==
+                                          element.barang,
+                                    );
+                                    setState(() {
+                                      itemKeranjang.harga = barang.warung;
+                                      itemKeranjang.totalHarga =
+                                          itemKeranjang.qty *
+                                              itemKeranjang.harga;
+                                      sumTotalHarga();
+                                    });
+                                    print(itemKeranjang.barang);
+                                    print(itemKeranjang.harga);
+                                  }
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Text('10%'),
+                                    const Text('Warung'),
+                                    AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 200),
+                                      margin: const EdgeInsets.only(top: 8),
+                                      width: 16,
+                                      height: 16,
+                                      decoration: BoxDecoration(
+                                        color: _groupHarga == 'Warung'
+                                            ? colorScheme.primary
+                                            : Colors.transparent,
+                                        border: Border.all(
+                                            color: colorScheme.primary),
+                                        borderRadius: BorderRadius.circular(32),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    onKembali();
+                                    setHarga('Medis');
+                                    pembeliController.text = '';
+                                  });
+                                  for (var itemKeranjang in _keranjang) {
+                                    Barang? barang = barangs.firstWhere(
+                                      (element) =>
+                                          itemKeranjang.barang ==
+                                          element.barang,
+                                    );
+                                    setState(() {
+                                      itemKeranjang.harga = barang.medis;
+                                      itemKeranjang.totalHarga =
+                                          itemKeranjang.qty *
+                                              itemKeranjang.harga;
+                                      sumTotalHarga();
+                                    });
+                                    print(itemKeranjang.barang);
+                                    print(itemKeranjang.harga);
+                                  }
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Text('0.07'),
+                                    const Text('Medis'),
+                                    AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 200),
+                                      margin: const EdgeInsets.only(top: 8),
+                                      width: 16,
+                                      height: 16,
+                                      decoration: BoxDecoration(
+                                        color: _groupHarga == 'Medis'
+                                            ? colorScheme.primary
+                                            : Colors.transparent,
+                                        border: Border.all(
+                                            color: colorScheme.primary),
+                                        borderRadius: BorderRadius.circular(32),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        FutureBuilder<List<Keranjang>?>(
+                          future: Future.value(_keranjang),
+                          builder: (BuildContext context,
+                              AsyncSnapshot<List<Keranjang>?> snapshot) {
+                            Widget child;
+                            if (snapshot.hasData) {
+                              List<Keranjang>? data = snapshot.data;
+
+                              child = SizedBox(
+                                height: 200,
+                                child: SingleChildScrollView(
+                                  child: DataTable(
+                                      dataRowMinHeight: 30,
+                                      dataRowMaxHeight: 50,
+                                      columns: const [
+                                        DataColumn(label: Text('Barang')),
+                                        DataColumn(label: Text('        Qty')),
+                                        DataColumn(label: Text('Jumlah')),
+                                        DataColumn(label: Text('Aksi')),
+                                      ],
+                                      rows: data!.map((item) {
+                                        Keranjang obj = _keranjang.firstWhere(
+                                            (element) =>
+                                                element.barang == item.barang);
+                                        return DataRow(cells: [
+                                          DataCell(Text(item.barang)),
+                                          DataCell(Row(
+                                            children: [
+                                              IconButton(
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      // disini
+
+                                                      if (obj.qty > 1) {
+                                                        onKembali();
+                                                        obj.qty = obj.qty - 1;
+                                                        obj.totalHarga =
+                                                            obj.harga * obj.qty;
+                                                        sumTotalHarga();
+                                                        sumTotalQty();
+                                                      }
+                                                    });
+                                                  },
+                                                  icon: const Icon(
+                                                      Icons.arrow_left)),
+                                              Text(
+                                                item.qty.toString(),
+                                                style: TextStyle(
+                                                    color: colorScheme.primary),
+                                              ),
+                                              IconButton(
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      onKembali();
+                                                      obj.qty = obj.qty + 1;
+                                                      obj.totalHarga =
+                                                          obj.harga * obj.qty;
+                                                      sumTotalHarga();
+                                                      sumTotalQty();
+                                                    });
+                                                  },
+                                                  icon: const Icon(
+                                                      Icons.arrow_right)),
+                                            ],
+                                          )),
+                                          DataCell(Text(
+                                              toIDR(item.totalHarga))), //disini
+                                          DataCell(IconButton(
+                                              onPressed: () {
+                                                setState(() {
+                                                  _keranjang.removeWhere(
+                                                      (element) =>
+                                                          element.barang ==
+                                                          obj.barang);
+                                                  sumTotalHarga();
+                                                  onKembali();
+                                                });
+                                              },
+                                              icon: const Icon(Icons.delete))),
+                                        ]);
+                                      }).toList()),
+                                ),
+                              );
+                            } else if (snapshot.hasError) {
+                              child = const Text('Data belum ada');
+                            } else {
+                              child = const SizedBox(
+                                width: 60,
+                                height: 60,
+                                child: CircularProgressIndicator(),
+                              );
+                            }
+                            return child;
+                          },
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        FilledButton(
+                          onPressed: () async {
+                            //ini
+                            onKembali();
+                            Penjualan penjualan =
+                                await penjualanController.post(Penjualan(
+                              pembeli: pembeliController.text,
+                              tipePembayaran: _groupPembayaran,
+                              tipeHarga: _groupHarga,
+                              jumlahItem: _totalQty,
+                              totalHarga: _totalHarga,
+                              tunai:
+                                  double.tryParse(tunaiController.text) ?? 0.0,
+                              kembali: double.tryParse(kembali) ?? 0.0,
+                            ));
+
+                            for (var item in _keranjang) {
+                              penjualan2Controller.post(Penjualan2(
+                                  penjualanId: penjualan.id,
+                                  barang: item.barang,
+                                  harga: item.harga,
+                                  qty: item.qty,
+                                  totalHarga: item.totalHarga));
+                            }
+                            _dialogBuilder(context, penjualan);
+                          },
+                          child: const Text('Simpan'),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text('Total : ${toIDR(_totalHarga)}'),
+                            Text(
+                                'Tunai : ${_groupPembayaran == 'Tunai' ? toIDR(double.tryParse(tunaiController.text) ?? 0.0) : '-'}'),
+                            Text(
+                                'Kembali : ${_groupPembayaran == 'Tunai' ? toIDR(double.tryParse(kembali) ?? 0.0) : '-'}'),
+                          ],
+                        ),
+                        SizedBox(
+                          width: 150,
+                          height: 50,
+                          child: TextField(
+                            controller: tunaiController,
+                            enabled: _groupPembayaran != 'Tunai' ? false : true,
+                            decoration: InputDecoration(
+                              labelText: 'Tunai',
+                              border: const OutlineInputBorder(),
+                              errorText: tunaiController.text.isEmpty
+                                  ? 'Harap isi nominal'
+                                  : null,
                             ),
+                            onChanged: (value) {
+                              setState(() {
+                                onKembali();
+                              });
+                            },
+                            onEditingComplete: () {
+                              double val = double.parse(tunaiController.text);
+                              tunaiController.text = toIDR(val);
+                            },
+                          ),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
                             GestureDetector(
                               onTap: () {
                                 setState(() {
-                                  onKembali();
-                                  setHarga('OTC');
-                                  pembeliController.text = 'UMUM';
+                                  setPembayaran('Tunai');
+                                  tunaiController.text = '';
                                 });
-                                for (var itemKeranjang in _keranjang) {
-                                  Barang? barang = barangs.firstWhere(
-                                    (element) =>
-                                        itemKeranjang.barang == element.barang,
-                                  );
-                                  setState(() {
-                                    itemKeranjang.harga = barang.otc;
-                                    itemKeranjang.totalHarga =
-                                        itemKeranjang.qty * itemKeranjang.harga;
-                                    sumTotalHarga();
-                                  });
-                                  print(itemKeranjang.barang);
-                                  print(itemKeranjang.harga);
-                                }
                               },
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  const Text('OTC'),
-                                  const Text('Umum'),
+                                  const Text('Tunai'),
                                   AnimatedContainer(
                                     duration: const Duration(milliseconds: 200),
                                     margin: const EdgeInsets.only(top: 8),
                                     width: 16,
                                     height: 16,
                                     decoration: BoxDecoration(
-                                      color: _groupHarga == 'OTC'
+                                      color: _groupPembayaran == 'Tunai'
                                           ? colorScheme.primary
                                           : Colors.transparent,
                                       border: Border.all(
@@ -1583,84 +1883,27 @@ class _AddPageState extends State<AddPage> {
                                 ],
                               ),
                             ),
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  onKembali();
-                                  setHarga('Warung');
-                                  pembeliController.text = '';
-                                });
-                                for (var itemKeranjang in _keranjang) {
-                                  Barang? barang = barangs.firstWhere(
-                                    (element) =>
-                                        itemKeranjang.barang == element.barang,
-                                  );
-                                  setState(() {
-                                    itemKeranjang.harga = barang.warung;
-                                    itemKeranjang.totalHarga =
-                                        itemKeranjang.qty * itemKeranjang.harga;
-                                    sumTotalHarga();
-                                  });
-                                  print(itemKeranjang.barang);
-                                  print(itemKeranjang.harga);
-                                }
-                              },
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  const Text('10%'),
-                                  const Text('Warung'),
-                                  AnimatedContainer(
-                                    duration: const Duration(milliseconds: 200),
-                                    margin: const EdgeInsets.only(top: 8),
-                                    width: 16,
-                                    height: 16,
-                                    decoration: BoxDecoration(
-                                      color: _groupHarga == 'Warung'
-                                          ? colorScheme.primary
-                                          : Colors.transparent,
-                                      border: Border.all(
-                                          color: colorScheme.primary),
-                                      borderRadius: BorderRadius.circular(32),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            const SizedBox(
+                              width: 16,
                             ),
                             GestureDetector(
                               onTap: () {
                                 setState(() {
-                                  onKembali();
-                                  setHarga('Medis');
-                                  pembeliController.text = '';
+                                  setPembayaran('Transfer');
+                                  tunaiController.text = '-';
                                 });
-                                for (var itemKeranjang in _keranjang) {
-                                  Barang? barang = barangs.firstWhere(
-                                    (element) =>
-                                        itemKeranjang.barang == element.barang,
-                                  );
-                                  setState(() {
-                                    itemKeranjang.harga = barang.medis;
-                                    itemKeranjang.totalHarga =
-                                        itemKeranjang.qty * itemKeranjang.harga;
-                                    sumTotalHarga();
-                                  });
-                                  print(itemKeranjang.barang);
-                                  print(itemKeranjang.harga);
-                                }
                               },
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  const Text('0.07'),
-                                  const Text('Medis'),
+                                  const Text('Transfer'),
                                   AnimatedContainer(
                                     duration: const Duration(milliseconds: 200),
                                     margin: const EdgeInsets.only(top: 8),
                                     width: 16,
                                     height: 16,
                                     decoration: BoxDecoration(
-                                      color: _groupHarga == 'Medis'
+                                      color: _groupPembayaran == 'Transfer'
                                           ? colorScheme.primary
                                           : Colors.transparent,
                                       border: Border.all(
@@ -1673,241 +1916,10 @@ class _AddPageState extends State<AddPage> {
                             ),
                           ],
                         ),
-                      ),
-                      FutureBuilder<List<Keranjang>?>(
-                        future: Future.value(_keranjang),
-                        builder: (BuildContext context,
-                            AsyncSnapshot<List<Keranjang>?> snapshot) {
-                          Widget child;
-                          if (snapshot.hasData) {
-                            List<Keranjang>? data = snapshot.data;
-
-                            child = SizedBox(
-                              height: 300,
-                              child: SingleChildScrollView(
-                                child: DataTable(
-                                    dataRowMinHeight: 30,
-                                    dataRowMaxHeight: 50,
-                                    columns: const [
-                                      DataColumn(label: Text('Barang')),
-                                      DataColumn(label: Text('        Qty')),
-                                      DataColumn(label: Text('Jumlah')),
-                                      DataColumn(label: Text('Aksi')),
-                                    ],
-                                    rows: data!.map((item) {
-                                      Keranjang obj = _keranjang.firstWhere(
-                                          (element) =>
-                                              element.barang == item.barang);
-                                      return DataRow(cells: [
-                                        DataCell(Text(item.barang)),
-                                        DataCell(Row(
-                                          children: [
-                                            IconButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    // disini
-
-                                                    if (obj.qty > 1) {
-                                                      onKembali();
-                                                      obj.qty = obj.qty - 1;
-                                                      obj.totalHarga =
-                                                          obj.harga * obj.qty;
-                                                      sumTotalHarga();
-                                                      sumTotalQty();
-                                                    }
-                                                  });
-                                                },
-                                                icon: const Icon(
-                                                    Icons.arrow_left)),
-                                            Text(
-                                              item.qty.toString(),
-                                              style: TextStyle(
-                                                  color: colorScheme.primary),
-                                            ),
-                                            IconButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    onKembali();
-                                                    obj.qty = obj.qty + 1;
-                                                    obj.totalHarga =
-                                                        obj.harga * obj.qty;
-                                                    sumTotalHarga();
-                                                    sumTotalQty();
-                                                  });
-                                                },
-                                                icon: const Icon(
-                                                    Icons.arrow_right)),
-                                          ],
-                                        )),
-                                        DataCell(Text(
-                                            toIDR(item.totalHarga))), //disini
-                                        DataCell(IconButton(
-                                            onPressed: () {
-                                              setState(() {
-                                                _keranjang.removeWhere(
-                                                    (element) =>
-                                                        element.barang ==
-                                                        obj.barang);
-                                                sumTotalHarga();
-                                                onKembali();
-                                              });
-                                            },
-                                            icon: const Icon(Icons.delete))),
-                                      ]);
-                                    }).toList()),
-                              ),
-                            );
-                          } else if (snapshot.hasError) {
-                            child = const Text('Data belum ada');
-                          } else {
-                            child = const SizedBox(
-                              width: 60,
-                              height: 60,
-                              child: CircularProgressIndicator(),
-                            );
-                          }
-                          return child;
-                        },
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        child: Divider(
-                          thickness: 2,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      SizedBox(
-                        width: 150,
-                        child: TextField(
-                          controller: tunaiController,
-                          enabled: _groupPembayaran != 'Tunai' ? false : true,
-                          decoration: InputDecoration(
-                            labelText: 'Tunai',
-                            border: const OutlineInputBorder(),
-                            errorText: tunaiController.text.isEmpty
-                                ? 'Harap isi nominal'
-                                : null,
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              onKembali();
-                            });
-                          },
-                          onEditingComplete: () {
-                            double val = double.parse(tunaiController.text);
-                            tunaiController.text = toIDR(val);
-                          },
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                setPembayaran('Tunai');
-                                tunaiController.text = '';
-                              });
-                            },
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Text('Tunai'),
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  margin: const EdgeInsets.only(top: 8),
-                                  width: 16,
-                                  height: 16,
-                                  decoration: BoxDecoration(
-                                    color: _groupPembayaran == 'Tunai'
-                                        ? colorScheme.primary
-                                        : Colors.transparent,
-                                    border:
-                                        Border.all(color: colorScheme.primary),
-                                    borderRadius: BorderRadius.circular(32),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(
-                            width: 16,
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                setPembayaran('Transfer');
-                                tunaiController.text = '-';
-                              });
-                            },
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Text('Transfer'),
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  margin: const EdgeInsets.only(top: 8),
-                                  width: 16,
-                                  height: 16,
-                                  decoration: BoxDecoration(
-                                    color: _groupPembayaran == 'Transfer'
-                                        ? colorScheme.primary
-                                        : Colors.transparent,
-                                    border:
-                                        Border.all(color: colorScheme.primary),
-                                    borderRadius: BorderRadius.circular(32),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text('Total : ${toIDR(_totalHarga)}'),
-                          Text(
-                              'Tunai : ${_groupPembayaran == 'Tunai' ? toIDR(double.tryParse(tunaiController.text) ?? 0.0) : '-'}'),
-                          Text(
-                              'Kembali : ${_groupPembayaran == 'Tunai' ? toIDR(double.tryParse(kembali) ?? 0.0) : '-'}'),
-                        ],
-                      ),
-                    ],
-                  ),
-                  FilledButton(
-                    onPressed: () async {
-                      //ini
-                      onKembali();
-                      Penjualan penjualan =
-                          await penjualanController.post(Penjualan(
-                        pembeli: pembeliController.text,
-                        tipePembayaran: _groupPembayaran,
-                        tipeHarga: _groupHarga,
-                        jumlahItem: _totalQty,
-                        totalHarga: _totalHarga,
-                        tunai: double.tryParse(tunaiController.text) ?? 0.0,
-                        kembali: double.tryParse(kembali) ?? 0.0,
-                      ));
-
-                      for (var item in _keranjang) {
-                        penjualan2Controller.post(Penjualan2(
-                            penjualanId: penjualan.id,
-                            barang: item.barang,
-                            harga: item.harga,
-                            qty: item.qty,
-                            totalHarga: item.totalHarga));
-                      }
-                      _dialogBuilder(context, penjualan);
-                    },
-                    child: const Text('Simpan'),
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -2135,7 +2147,7 @@ class DetailPage extends StatelessWidget {
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: SizedBox(
-                      height: 400,
+                      height: 320,
                       child: FutureBuilder<List<Map<String, dynamic>>>(
                         future: penjualan2Controller.get(penjualan.id ?? 0),
                         builder: (BuildContext context,
