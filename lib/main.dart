@@ -857,115 +857,117 @@ Future<void> checkManageExternalStoragePermission() async {
               height: 420,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child: FutureBuilder<List<Map<String, dynamic>>>(
-                  future: penjualanController.get(date: _dateTime),
-                  builder: (BuildContext context,
-                      AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
-                    Widget child;
-                    if (snapshot.hasData) {
-                      child = DataTable(
-                        columns: const [
-                          DataColumn(label: Text('No')),
-                          DataColumn(label: Text('Tanggal')),
-                          DataColumn(label: Text('Kasir')),
-                          DataColumn(label: Text('Pembeli')),
-                          DataColumn(label: Text('Tipe Pembayaran')),
-                          DataColumn(label: Text('Tipe Harga')),
-                          DataColumn(label: Text('Total Item')),
-                          DataColumn(label: Text('Total Harga')),
-                          DataColumn(label: Text('Aksi')),
-                        ],
-                        rows: (() {
-                          int index = 1; // Variable to keep track of the index
-                          return snapshot.data!.map((item) {
-                            //print(item);
-                            final Penjualan penjualan = Penjualan.fromMap(item);
-                            final currentIndex =
-                                index++; // Increment the index for each item
-                            return DataRow(cells: [
-                              DataCell(Text(currentIndex
-                                  .toString())), // Use currentIndex for dynamic number
-                              DataCell(
-                                SizedBox(
-                                  width: 100,
-                                  child: Text(DateFormat("yyyy-MM-dd HH:mm:ss")
-                                      .parse(penjualan.tanggal ?? '')
-                                      .toString()),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: 100,
-                                  child: Text(penjualan.kasir ?? ''),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: 100,
-                                  child: Text(penjualan.pembeli),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: 100,
-                                  child: Text(penjualan.tipePembayaran),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: 100,
-                                  child: Text(penjualan.tipeHarga),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: 100,
-                                  child: Text(penjualan.jumlahItem.toString()),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: 100,
-                                  child: Text(toIDR(penjualan.totalHarga)),
-                                ),
-                              ),
-                              DataCell(
-                                SizedBox(
-                                  width: 100,
-                                  child: Row(
-                                    children: [
-                                      FilledButton.tonal(
-                                        onPressed: () {
-                                          Navigator.pushReplacement(
-                                            context,
-                                            MaterialPageRoute(
-                                                builder: (context) =>
-                                                    DetailPage(
-                                                      penjualan: penjualan,
-                                                    )),
-                                          );
-                                        },
-                                        child: const Text('Detail'),
-                                      ),
-                                    ],
+                child: SingleChildScrollView(
+                  child: FutureBuilder<List<Map<String, dynamic>>>(
+                    future: penjualanController.get(date: _dateTime),
+                    builder: (BuildContext context,
+                        AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
+                      Widget child;
+                      if (snapshot.hasData) {
+                        child = DataTable(
+                          columns: const [
+                            DataColumn(label: Text('No')),
+                            DataColumn(label: Text('Tanggal')),
+                            DataColumn(label: Text('Kasir')),
+                            DataColumn(label: Text('Pembeli')),
+                            DataColumn(label: Text('Tipe Pembayaran')),
+                            DataColumn(label: Text('Tipe Harga')),
+                            DataColumn(label: Text('Total Item')),
+                            DataColumn(label: Text('Total Harga')),
+                            DataColumn(label: Text('Aksi')),
+                          ],
+                          rows: (() {
+                            int index = 1; // Variable to keep track of the index
+                            return snapshot.data!.map((item) {
+                              //print(item);
+                              final Penjualan penjualan = Penjualan.fromMap(item);
+                              final currentIndex =
+                                  index++; // Increment the index for each item
+                              return DataRow(cells: [
+                                DataCell(Text(currentIndex
+                                    .toString())), // Use currentIndex for dynamic number
+                                DataCell(
+                                  SizedBox(
+                                    width: 100,
+                                    child: Text(DateFormat("yyyy-MM-dd HH:mm:ss")
+                                        .parse(penjualan.tanggal ?? '')
+                                        .toString()),
                                   ),
                                 ),
-                              ),
-                            ]);
-                          }).toList();
-                        })(),
-                      );
-                    } else if (snapshot.hasError) {
-                      child = const Text('Data belum ada');
-                    } else {
-                      child = const SizedBox(
-                        width: 60,
-                        height: 60,
-                        child: CircularProgressIndicator(),
-                      );
-                    }
-                    return child;
-                  },
+                                DataCell(
+                                  SizedBox(
+                                    width: 100,
+                                    child: Text(penjualan.kasir ?? ''),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    width: 100,
+                                    child: Text(penjualan.pembeli),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    width: 100,
+                                    child: Text(penjualan.tipePembayaran),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    width: 100,
+                                    child: Text(penjualan.tipeHarga),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    width: 100,
+                                    child: Text(penjualan.jumlahItem.toString()),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    width: 100,
+                                    child: Text(toIDR(penjualan.totalHarga)),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    width: 100,
+                                    child: Row(
+                                      children: [
+                                        FilledButton.tonal(
+                                          onPressed: () {
+                                            Navigator.pushReplacement(
+                                              context,
+                                              MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      DetailPage(
+                                                        penjualan: penjualan,
+                                                      )),
+                                            );
+                                          },
+                                          child: const Text('Detail'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ]);
+                            }).toList();
+                          })(),
+                        );
+                      } else if (snapshot.hasError) {
+                        child = const Text('Data belum ada');
+                      } else {
+                        child = const SizedBox(
+                          width: 60,
+                          height: 60,
+                          child: CircularProgressIndicator(),
+                        );
+                      }
+                      return child;
+                    },
+                  ),
                 ),
               ),
             ),
