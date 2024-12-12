@@ -45,8 +45,14 @@ Future<void> main() async {
 List<Barang> barangs = [];
 
 Future<Database> database() async {
-  final Directory appDocumentsDir = await getApplicationDocumentsDirectory();
-  String dbPath = p.join(appDocumentsDir.path, 'recashier', 'v1.db');
+
+    var permission = await Permission.manageExternalStorage.status;
+
+  if (!permission.isGranted) {
+    await Permission.manageExternalStorage.request();
+  }
+
+  String dbPath = p.join('/storage/emulated/0/Download/', 'recashier', 'v1.db');
 
   return await databaseFactory.openDatabase(
     dbPath,
@@ -794,7 +800,6 @@ Future<void> checkManageExternalStoragePermission() async {
         title: const Text('Re Cashier'),
         actions: [
           SizedBox(
-            width: 400,
             child: FutureBuilder<String?>(
               future: getPathHarga(),
               builder: (BuildContext context, AsyncSnapshot<String?> snapshot) {
