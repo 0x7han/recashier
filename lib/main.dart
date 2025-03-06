@@ -403,7 +403,7 @@ class _MyMainPageState extends State<MyMainPage> {
             fontSize: 12,
           );
           return [
-                  pw.Text('== APOTEK PINTU ==', style: headStyle),
+                  pw.Text('== APOTEK APTA ==', style: headStyle),
                   pw.Text('Laporan Keuangan', style: subHeadStyle),
                   pw.Text('________________________________________________',
                       style: subHeadStyle),
@@ -1169,10 +1169,10 @@ class _AddPageState extends State<AddPage> {
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               mainAxisAlignment: pw.MainAxisAlignment.center,
               children: [
-                pw.Text('- Apotek Pintu -', style: headStyle),
-                pw.Text('Jl Raya Pangalengan No 755', style: bodyStyle),
-                pw.Text('RW 22 RT 01, Kp Pintu', style: bodyStyle),
-                pw.Text('Desa Sukamanah', style: bodyStyle),
+                pw.Text('- Apotek Apta -', style: headStyle),
+                pw.Text('Jl Raya Pangalengan No 347', style: bodyStyle),
+                pw.Text('Kecamatan Pangalengan', style: bodyStyle),
+                pw.Text('Desa Pangalengan', style: bodyStyle),
                 pw.Text('--------------------------------------------',
                     style: bodyStyle),
                 pw.Row(
@@ -1953,10 +1953,10 @@ class DetailPage extends StatelessWidget {
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               mainAxisAlignment: pw.MainAxisAlignment.center,
               children: [
-                pw.Text('- Apotek Pintu -', style: headStyle),
-                pw.Text('Jl Raya Pangalengan No 755', style: bodyStyle),
-                pw.Text('RW 22 RT 01, Kp Pintu', style: bodyStyle),
-                pw.Text('Desa Sukamanah', style: bodyStyle),
+                pw.Text('- Apotek Apta -', style: headStyle),
+                pw.Text('Jl Raya Pangalengan No 347', style: bodyStyle),
+                pw.Text('Kecamatan Pangalengan', style: bodyStyle),
+                pw.Text('Desa Pangalengan', style: bodyStyle),
                 pw.Text('--------------------------------------------',
                     style: bodyStyle),
                 pw.Row(
