@@ -297,7 +297,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       restorationScopeId: "desktop-test1",
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
       ),
       home: const MyMainPage(),
@@ -1116,7 +1116,7 @@ class _AddPageState extends State<AddPage> {
           double res = tempHnaPpn * 1.07;
           medis = res;
         } else if (cell?.columnIndex == 6) {
-          double res = tempHnaPpn * 1.1;
+          double res = tempHnaPpn * 1.11;
           warung = res;
         } else if (cell?.columnIndex == 7) {
           otc = double.tryParse(result.toString()) ?? 0.0;
@@ -1217,10 +1217,10 @@ class _AddPageState extends State<AddPage> {
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               mainAxisAlignment: pw.MainAxisAlignment.center,
               children: [
-                pw.Text('- Apotek Pintu -', style: headStyle),
-                pw.Text('Jl Raya Pangalengan No 755', style: bodyStyle),
-                pw.Text('RW 22 RT 01, Kp Pintu', style: bodyStyle),
-                pw.Text('Desa Sukamanah', style: bodyStyle),
+                pw.Text('- Apotek Apta -', style: headStyle),
+                pw.Text('Jl Raya Pangalengan No 347', style: bodyStyle),
+                pw.Text('Kecamatan Pangalengan', style: bodyStyle),
+                pw.Text('Desa Pangalengan', style: bodyStyle),
                 pw.Text('--------------------------------------------',
                     style: bodyStyle),
                 pw.Row(
@@ -2016,10 +2016,10 @@ class DetailPage extends StatelessWidget {
               crossAxisAlignment: pw.CrossAxisAlignment.center,
               mainAxisAlignment: pw.MainAxisAlignment.center,
               children: [
-                pw.Text('- Apotek Pintu -', style: headStyle),
-                pw.Text('Jl Raya Pangalengan No 755', style: bodyStyle),
-                pw.Text('RW 22 RT 01, Kp Pintu', style: bodyStyle),
-                pw.Text('Desa Sukamanah', style: bodyStyle),
+                pw.Text('- Apotek Apta -', style: headStyle),
+                pw.Text('Jl Raya Pangalengan No 347', style: bodyStyle),
+                pw.Text('Kecamatan Pangalengan', style: bodyStyle),
+                pw.Text('Desa Pangalengan', style: bodyStyle),
                 pw.Text('--------------------------------------------',
                     style: bodyStyle),
                 pw.Row(
@@ -2089,7 +2089,7 @@ class DetailPage extends StatelessWidget {
                               pw.Text('Total ', style: bodyStyle),
                               pw.Text('Tunai ', style: bodyStyle),
                               pw.Text('Kembali ', style: bodyStyle),
-                            ]),
+                            ],),
                         pw.Column(
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
@@ -2139,17 +2139,53 @@ class DetailPage extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          List<Map<String, dynamic>> penjualan2s =
-              await penjualan2Controller.get(penjualan.id ?? 0);
-          print(penjualan2s);
-          Printing.layoutPdf(
-              onLayout: (PdfPageFormat format) =>
-                  _generatePdf(penjualan, penjualan2s));
-        },
-        label: Text('Cetak'),
-        icon: Icon(Icons.print),
+      floatingActionButton: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FilledButton.tonalIcon(
+            onPressed: () async {
+              List<Map<String, dynamic>> penjualan2s =
+                  await penjualan2Controller.get(penjualan.id ?? 0);
+              print(penjualan2s);
+              Printing.layoutPdf(
+                  onLayout: (PdfPageFormat format) =>
+                      _generatePdf(penjualan, penjualan2s));
+            },
+            label: Text('Cetak'),
+            icon: Icon(Icons.print),
+          ),
+          SizedBox(width: 8,),
+         FilledButton.tonalIcon(
+                onPressed: () async {
+                  String tanggal = penjualan.tanggal ?? '';
+                  tanggal = tanggal.replaceAll(" ", "-").replaceAll(":", "");
+                  List<Map<String, dynamic>> penjualan2s =
+                  await penjualan2Controller.get(penjualan.id ?? 0);
+                 var snackBar = SnackBar(
+                    content: Text(
+                        'File bill tersimpan di folder Documents dengan nama : Recashier-bill-${tanggal}-${penjualan.tipeHarga}-${penjualan.pembeli}.pdf'),
+                  );
+                  final output = await getApplicationDocumentsDirectory();
+                  final file = File(
+                      '${output.path}/Recashier-bill-${tanggal}-${penjualan.tipeHarga}-${penjualan.pembeli}.pdf');
+                  if (await file.exists()) {
+                    await file.delete(); // Menghapus file jika sudah ada
+                  }
+                  await file.writeAsBytes(await _generatePdf(penjualan, penjualan2s));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const MyMainPage()),
+                    );
+                  }
+                   
+                },
+                label: const Text('Simpan'),
+                icon: const Icon(Icons.picture_as_pdf),
+              ), 
+        ],
       ),
       body: Container(
         padding: const EdgeInsets.all(16),
